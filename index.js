@@ -22,6 +22,7 @@ const client = new MongoClient(uri, {
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization
+  console.log(authorization)
   if(!authorization){
     return res.status(401).send({error:true, message: 'Unauthorize access'})
   }
@@ -38,23 +39,21 @@ const verifyJWT = (req, res, next) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const servicesCollection = client.db("carDoctor").collection("services");
     const checkoutCollection = client.db("carDoctor").collection("checkout")
 
-    // JWT
-    app.post('/jwt', (req,res) => {
-      const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: '1h'
-      })
-      res.send({token})
-    })
+    
 
     // SERVICES
     app.get('/services', async(req,res) => {
-        const cursor = servicesCollection.find();
+      const sort = req.query?.sort;
+      const query = {}
+      const options = {
+        sort: { "price": sort === 'asc' ? 1 : -1 },
+      };
+        const cursor = servicesCollection.find(query, options);
         const result = await cursor.toArray();
         res.send(result)
     })
@@ -114,7 +113,7 @@ async function run() {
     })
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
@@ -125,7 +124,22 @@ run().catch(console.dir);
 
 
 app.get('/', (req,res) => {
+
     res.send('Car Doctor Server is running');
+    
+})
+
+// JWT
+app.post('/jwt',(req,res) => {
+  const user = req.body;
+  jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: '1h'
+  },(error, token) => {
+    if(error){
+      return res.status(500).send({status: 0, message: error.message})
+    }
+    res.send({token})
+  })
 })
 
 app.listen(port, (req,res) => {
